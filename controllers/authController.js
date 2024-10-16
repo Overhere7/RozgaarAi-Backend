@@ -1,149 +1,147 @@
 import { addError } from "../error.js";
-import User from "../models/Users.js"
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
+import User from "../models/Users.js";
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import forge from 'node-forge'; // Add node-forge for RSA encryption
+import fs from 'fs';
 
+// Load RSA keys
+const publicKeyPem = fs.readFileSync('publicKey.pem', 'utf8');
+const publicKey = forge.pki.publicKeyFromPem(publicKeyPem);
 
-
+// SIGNUP Function
 export const signup = async (req, res, next) => {
     try {
         console.log("signup");
-        // const checkUser = await User.findOne({ username: req.body.username })
-        // if (checkUser) {
-        //     return next(addError(400, "Username Already Exist"))
-        // }
-        const checkEmail = await User.findOne({ email: req.body.email })
-        if (checkEmail) {
-            return next(addError(400, "Email Already Exist"))
-        }
-        const hash = bcrypt.hashSync(req.body.password, 10);
-        const newUser = new User({ ...req.body, password: hash })
-        // console.log(newUser)
-        // await newUser.save();
-        const user = await User.create(newUser)
 
-        console.log("User signup Is Successful")
+        const checkEmail = await User.findOne({ email: req.body.email });
+        if (checkEmail) {
+            return next(addError(400, "Email Already Exists"));
+        }
+
+        // Encrypt email and phone with RSA public key
+        const encryptedEmail = publicKey.encrypt(req.body.email, 'RSA-OAEP');
+        const encryptedPhone = publicKey.encrypt(req.body.phone, 'RSA-OAEP');
+
+        // Hash the password before storing
+        const hash = bcrypt.hashSync(req.body.password, 10);
+        
+        const newUser = new User({ 
+            ...req.body, 
+            email: encryptedEmail, // Save encrypted email
+            phone: encryptedPhone, // Save encrypted phone
+            password: hash 
+        });
+
+        const user = await User.create(newUser);
+
+        console.log("User signup Is Successful");
 
         const jwtToken = jwt.sign({ id: user._id }, process.env.JWT);
         const { password, ...others } = user._doc;
-        // console.log(jwtToken)
         const tenYearsFromNow = new Date();
         tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+
         res.cookie("rozgaar_token", jwtToken, {
             path: "/",
             secure: true,
             sameSite: 'none',
             httpOnly: true,
             expires: tenYearsFromNow,
-            // maxAge: 100 * 365 * 24 * 60 * 60 * 1000, // 100 years in milliseconds
         }).status(200).json(others);
+    } catch (err) {
+        next(addError(500, 'Not able to create user!'));
     }
-    catch (err) {
-        next(addError(500, 'Not able to create !'))
-    }
-}
+};
 
-
+// LOGIN Function
 export const login = async (req, res, next) => {
     try {
         console.log("Login");
 
-        // console.log(user);
-
-        const user = await User.findOne({ username: req.body.username })
-        // console.log(user)
+        // Find the user by username
+        const user = await User.findOne({ username: req.body.username });
         if (!user) {
-            return next(addError(404, "User Doesn't Exist"))
+            return next(addError(404, "User Doesn't Exist"));
         }
-        // console.log(req.body)
 
-        //Password Check
-        const isPasswordCorrect = await bcrypt.compare(req.body.password, user.password)
-
-        // console.log(req.body.password,user.password)
-        // console.log(isPasswordCorrect)
-
+        // Password Check
+        const isPasswordCorrect = await bcrypt.compare(req.body.password, user.password);
         if (!isPasswordCorrect) {
-            return next(addError(400, "Wrong Password"))
-            // return res.status(400).send("Wrong Password")
+            return next(addError(400, "Wrong Password"));
         }
-        console.log("User signin Is Successful")
+
+        console.log("User signin Is Successful");
 
         const jwtToken = jwt.sign({ id: user._id }, process.env.JWT);
         const { password, ...others } = user._doc;
-        // console.log(jwtToken)
         const tenYearsFromNow = new Date();
         tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+
         res.cookie("rozgaar_token", jwtToken, {
             path: "/",
             secure: true,
             sameSite: 'none',
             httpOnly: true,
             expires: tenYearsFromNow,
-            // maxAge: 100 * 365 * 24 * 60 * 60 * 1000, // 100 years in milliseconds
         }).status(200).json(others);
 
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
-}
+};
+
+// LOGOUT Function
 export const logout = async (req, res, next) => {
     try {
         return res.cookie('rozgaar_token', '', {
-            expire: new Date(0), path: '/',
+            expire: new Date(0),
+            path: '/',
             httpOnly: true,
-            path: "/",
             secure: true,
             sameSite: 'none',
         }).status(200).json('Logout');
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
-}
+};
 
-
+// Google Login
 export const googlelogin = async (req, res, next) => {
     try {
-        const checkEmail = await User.findOne({ email: req.body.email })
+        const checkEmail = await User.findOne({ email: req.body.email });
         if (checkEmail) {
-            const user = checkEmail
+            const user = checkEmail;
             const jwtToken = jwt.sign({ id: user._id }, process.env.JWT);
             const { password, ...others } = user._doc;
-            // console.log(jwtToken)
             const tenYearsFromNow = new Date();
             tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+
             return res.cookie("rozgaar_token", jwtToken, {
                 path: "/",
                 secure: true,
                 sameSite: 'none',
                 httpOnly: true,
                 expires: tenYearsFromNow,
-                // maxAge: 100 * 365 * 24 * 60 * 60 * 1000, // 100 years in milliseconds
             }).status(200).json(others);
-        }
-        else {
-            const newUser = new User({ ...req.body })
-            const user = await User.create(newUser)
+        } else {
+            const newUser = new User({ ...req.body });
+            const user = await User.create(newUser);
             const jwtToken = jwt.sign({ id: user._id }, process.env.JWT);
             const { password, ...others } = user._doc;
-            // console.log(jwtToken)
             const tenYearsFromNow = new Date();
             tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+
             return res.cookie("rozgaar_token", jwtToken, {
                 path: "/",
                 secure: true,
                 sameSite: 'none',
                 httpOnly: true,
                 expires: tenYearsFromNow,
-                // maxAge: 100 * 365 * 24 * 60 * 60 * 1000, // 100 years in milliseconds
             }).status(200).json(others);
-
         }
 
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
-}
+};

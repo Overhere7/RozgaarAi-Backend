@@ -4,9 +4,11 @@ import mongoose from 'mongoose';
 import userRoutes from './routes/userRoute.js'
 import authRoutes from './routes/auth.js'
 import roadmapRoute from "./routes/roadMapRoutes.js"
+import resumeRoute from "./routes/resumeRoutes.js"
 import naukriRoute from "./routes/naukriRoutes.js"
 import cookieParser from 'cookie-parser';
 import cors from "cors"
+import './rsakey.js';
 
 const app=express();
 app.use(express.json())
@@ -18,6 +20,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     }));
+
 
 dotenv.config()
 const connectApp=()=>{
@@ -33,6 +36,7 @@ app.use('/api/auth',authRoutes)
 app.use('/api/users',userRoutes)
 app.use('/api/naukri',naukriRoute)
 app.use('/api/roadmap',roadmapRoute)
+app.use('/api/resume',resumeRoute)
 
 app.use((err,req,res,next)=>{
     const status=err.status || 500;

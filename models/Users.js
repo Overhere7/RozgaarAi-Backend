@@ -52,10 +52,10 @@ const UserSchema=new mongoose.Schema({
         type:String,
     },
     passingYear:{
-        type:Number,
+        type:String,
     },
     twelvePercentage:{
-        type:Number,
+        type:String,
     },
     twelveLocation:{
         type:String,
@@ -70,10 +70,10 @@ const UserSchema=new mongoose.Schema({
         type:String,
     },
     tenthPercentage:{
-        type:Number,
+        type:String,
     },
     degreePursuing:{
-        type:Number,
+        type:String,
     },
     project1:{
         type:String,
@@ -128,6 +128,15 @@ const UserSchema=new mongoose.Schema({
         type:String,
     },
     excurr_4:{
+        type:String,
+    },
+    experince1:{
+        type:String,
+    },
+    experince2:{
+        type:String,
+    },
+    experince3:{
         type:String,
     },
     
